@@ -1,0 +1,1 @@
+# DirPathSearcher_NextJS
