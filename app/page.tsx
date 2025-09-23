@@ -16,6 +16,26 @@ const App: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    const validateAndRefresh = async () => {
+      setIsScanning(true);
+      setMessage('Validating and refreshing database, please wait...');
+      try {
+        const res = await fetch('/api/validate', {
+          method: 'POST',
+        });
+        if (!res.ok) {
+          setMessage('Validation failed.');
+        }
+      } catch (error) {
+        setMessage('Validation error.');
+      }
+      setIsScanning(false);
+    };
+
+    validateAndRefresh();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const handleScan = async () => {
     if (!rootPath) return;
     setIsScanning(true);

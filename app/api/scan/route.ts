@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { addNewRootPath } from '@/lib/scanner';
+import { rescanRootPath } from '@/lib/scanner';
 
 export async function POST(request: Request) {
   try {
@@ -8,10 +8,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'rootPath is required' }, { status: 400 });
     }
 
-    // Do not await this, let it run in the background
-    addNewRootPath(rootPath);
+    await rescanRootPath(rootPath);
 
-    return NextResponse.json({ message: 'Scan started' }, { status: 202 });
+    return NextResponse.json({ message: 'Scan complete' }, { status: 200 });
   } catch (error) {
     console.error('Scan error:', error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });

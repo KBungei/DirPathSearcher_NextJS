@@ -77,7 +77,22 @@ export async function removeDirectory(path: string): Promise<void> {
     await db.run('DELETE FROM all_paths WHERE path = ?', path);
 }
 
+export async function clearPathsForRoot(rootPathId: number): Promise<void> {
+  const db = await initializeDb();
+  await db.run('DELETE FROM all_paths WHERE root_path_id = ?', rootPathId);
+}
+
 export async function getAllPaths(): Promise<{ path: string }[]> {
     const db = await initializeDb();
     return db.all('SELECT path FROM all_paths');
+}
+
+export async function removePaths(paths: string[]): Promise<void> {
+  if (paths.length === 0) {
+    return;
+  }
+  const db = await initializeDb();
+  const placeholders = paths.map(() => '?').join(',');
+  await db.run(`DELETE FROM all_paths WHERE path IN (${placeholders})`, ...paths);
+  await db.run(`DELETE FROM root_paths WHERE path IN (${placeholders})`, ...paths);
 }

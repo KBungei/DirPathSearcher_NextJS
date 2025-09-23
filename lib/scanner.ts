@@ -4,10 +4,13 @@ import path from 'path';
 import {
   addDirectory,
   addRootPath,
+  clearPathsForRoot,
   getAllPaths,
   getRootPaths,
   removeDirectory,
+  removePaths,
 } from './db';
+import { getTrueRootPaths, isDescendantOf } from './path-utils';
 
 let isScanning = false;
 
@@ -26,15 +29,52 @@ async function scan(rootPath: string, rootPathId: number) {
   }
 }
 
+export async function rescanRootPath(rootPath: string) {
+    let rootPaths = await getRootPaths();
+    let root = rootPaths.find(p => p.path === rootPath);
+
+    if (!root) {
+        await addRootPath(rootPath);
+        rootPaths = await getRootPaths();
+        root = rootPaths.find(p => p.path === rootPath);
+    }
+
+    if (root) {
+        await clearPathsForRoot(root.id);
+        await scan(root.path, root.id);
+    }
+}
+
+export async function validateAndRefreshAllRootPaths() {
+  const allDbPaths = (await getAllPaths()).map(p => p.path);
+  if (allDbPaths.length === 0) {
+    return;
+  }
+
+  const trueRootPaths = getTrueRootPaths(allDbPaths);
+
+  for (const rootPath of trueRootPaths) {
+    const pathExists = await fs.pathExists(rootPath);
+
+    if (pathExists) {
+      // Path is valid, rescan to check for internal changes
+      await rescanRootPath(rootPath);
+    } else {
+      // Path is invalid, remove it and all its descendants from the DB
+      const descendants = allDbPaths.filter(p => isDescendantOf(p, rootPath));
+      const pathsToRemove = [rootPath, ...descendants];
+      await removePaths(pathsToRemove);
+    }
+  }
+}
+
+
 export async function startInitialScan() {
   if (isScanning) {
     return;
   }
   isScanning = true;
-  const rootPaths = await getRootPaths();
-  for (const rootPath of rootPaths) {
-    await scan(rootPath.path, rootPath.id);
-  }
+  await validateAndRefreshAllRootPaths();
   isScanning = false;
   console.log('Initial scan complete.');
 }
@@ -44,7 +84,7 @@ export async function scanAndWatch() {
 
   const rootPaths = (await getRootPaths()).map((p) => p.path);
   const watcher = chokidar.watch(rootPaths, {
-    ignored: /(^|[\\])\/.. /,
+    ignored: /(^|[\\/])\.. /, 
     persistent: true,
     ignoreInitial: true,
     depth: Infinity,
@@ -66,18 +106,4 @@ export async function scanAndWatch() {
       await removeDirectory(dirPath);
     })
     .on('error', (error) => console.error(`Watcher error: ${error}`));
-}
-
-export async function addNewRootPath(newPath: string) {
-    const rootPaths = await getRootPaths();
-    if (rootPaths.some(p => p.path === newPath)) {
-        console.log('Path already exists.');
-        return;
-    }
-    await addRootPath(newPath);
-    const newRootPath = (await getRootPaths()).find(p => p.path === newPath);
-    if (newRootPath) {
-        await scan(newRootPath.path, newRootPath.id);
-        scanAndWatch(); // Re-initialize watcher to include new path
-    }
 }

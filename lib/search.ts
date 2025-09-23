@@ -27,22 +27,18 @@ function hierarchyCheck(pathParts: string[], terms: string[], ordered: boolean):
     }
 }
 
-export async function search(searchPhrase: string, orderEnforced: boolean): Promise<{ path: string }[]> {
+export async function search(searchPhrase: string, orderEnforced: boolean, exclusionOrderEnforced: boolean): Promise<{ path: string }[]> {
   const allPaths = await getAllPaths();
   const cleanedPhrase = cleanSearchPhrase(searchPhrase);
 
   let inclusionTerms: string[] = [];
   let exclusionTerms: string[] = [];
-  let exclusionOrderEnforced = false;
 
   if (cleanedPhrase.includes('!')) {
     const parts = cleanedPhrase.split('!');
     inclusionTerms = parts[0].split('>').map(t => t.trim()).filter(t => t);
     const exclusionPart = parts[1];
     exclusionTerms = exclusionPart.split('>').map(t => t.trim()).filter(t => t);
-    // The checkbox in UI is for inclusion, let's assume exclusion is ordered if it contains >
-    exclusionOrderEnforced = exclusionPart.includes('>'); 
-
   } else {
     inclusionTerms = cleanedPhrase.split('>').map(t => t.trim()).filter(t => t);
   }
