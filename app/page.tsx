@@ -47,10 +47,14 @@ const App: React.FC = () => {
         body: JSON.stringify({ rootPath }),
       });
       if (res.ok) {
-        const data = await res.json();
         setMessage('Scan complete.');
-        // Immediately update search results to reflect new/removed paths
-        setSearchResults(data.paths || []);
+        // After scanning, immediately trigger a search if a search phrase is present
+        if (searchPhrase) {
+          await handleSearch();
+        } else {
+          // If no search phrase, clear results to avoid showing stale data
+          setSearchResults([]);
+        }
       } else {
         setMessage('Scan failed.');
       }
