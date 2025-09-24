@@ -7,24 +7,28 @@ const normalizeString = (str: string): string => {
     .toLowerCase();
 };
 
+
+// Only remove characters except _ and > and !, but keep commas and other punctuation inside phrases
 const cleanSearchPhrase = (phrase: string): string => {
-    return phrase.replace(/[^a-zA-Z0-9_>!\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  return phrase.replace(/[^\w\s,>!\-_]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function hierarchyCheck(pathParts: string[], terms: string[], ordered: boolean): boolean {
-    if (ordered) {
-        let lastIndex = -1;
-        for (const term of terms) {
-            const index = pathParts.findIndex((part, i) => i > lastIndex && part.includes(term));
-            if (index === -1) {
-                return false;
-            }
-            lastIndex = index;
-        }
-        return true;
-    } else {
-        return terms.every(term => pathParts.some(part => part.includes(term)));
+  if (ordered) {
+    let lastIndex = -1;
+    for (const term of terms) {
+      // Find the next part that contains the whole normalized term (as a phrase)
+      const index = pathParts.findIndex((part, i) => i > lastIndex && part.includes(term));
+      if (index === -1) {
+        return false;
+      }
+      lastIndex = index;
     }
+    return true;
+  } else {
+    // All terms must be found as phrases in any part
+    return terms.every(term => pathParts.some(part => part.includes(term)));
+  }
 }
 
 export async function search(searchPhrase: string, orderEnforced: boolean, exclusionOrderEnforced: boolean): Promise<{ path: string }[]> {
@@ -43,26 +47,28 @@ export async function search(searchPhrase: string, orderEnforced: boolean, exclu
     inclusionTerms = cleanedPhrase.split('>').map(t => t.trim()).filter(t => t);
   }
 
+  // Normalize the full phrase for each term (including spaces, commas, etc.)
   const normalizedInclusion = inclusionTerms.map(normalizeString);
   const normalizedExclusion = exclusionTerms.map(normalizeString);
 
   const results = allPaths.filter(p => {
-    const normalizedPath = normalizeString(p.path);
-    const pathParts = normalizedPath.split(/[\/\\]/);
+  const normalizedPath = normalizeString(p.path);
+  // Split path into directory parts, preserving multiword/commas
+  const pathParts = normalizedPath.split(/[\/\\]/);
 
-    // Check for exclusion
-    if (normalizedExclusion.length > 0) {
-        if (hierarchyCheck(pathParts, normalizedExclusion, exclusionOrderEnforced)) {
-            return false;
-        }
+  // Check for exclusion
+  if (normalizedExclusion.length > 0) {
+    if (hierarchyCheck(pathParts, normalizedExclusion, exclusionOrderEnforced)) {
+      return false;
     }
+  }
 
-    // Check for inclusion
-    if (normalizedInclusion.length > 0) {
-        return hierarchyCheck(pathParts, normalizedInclusion, orderEnforced);
-    }
+  // Check for inclusion
+  if (normalizedInclusion.length > 0) {
+    return hierarchyCheck(pathParts, normalizedInclusion, orderEnforced);
+  }
 
-    return false;
+  return false;
   });
 
   return results.sort((a, b) => {

@@ -47,7 +47,10 @@ const App: React.FC = () => {
         body: JSON.stringify({ rootPath }),
       });
       if (res.ok) {
+        const data = await res.json();
         setMessage('Scan complete.');
+        // Immediately update search results to reflect new/removed paths
+        setSearchResults(data.paths || []);
       } else {
         setMessage('Scan failed.');
       }
